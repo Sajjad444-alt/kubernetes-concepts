@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgress-depl
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgress-depl
+  template:
+    metadata:
+      labels:
+        app: postgress-depl
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:13
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          value: "admin"
+        - name: POSTGRES_PASSWORD
+          value: "admin123"
+        - name: POSTGRES_DB
+          value: "mydb"
