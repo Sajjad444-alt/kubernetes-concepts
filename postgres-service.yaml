@@ -10,4 +10,5 @@ spec:
     - protocol: TCP
       port: 5432
       targetPort: 5432
-      nodePort: 30007   # Pick a port between 30000–32767
+      nodePort: 30007   # Pick a port between 30000ï¿½32767
+      # this is additional line to check branch working 
