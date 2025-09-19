@@ -1,0 +1,558 @@
+***********************************************  Kubernetes or K8's *************************************************************
+
+C : cluster 
+N : NODE 
+P : POD 
+C : CONTAINER 
+A : APPLICATION 
+
+
+NOTE : K8'S DON'T COMMUNICATE WITH CONTAIENRS 
+IT'S communicate with pod only 
+
+
+Components :
+==========
+
+Master Node :
+----------
+
+1 . API Server  : it for communicating with cluster , it take the input from user and execute and provide output 
+
+2 . ETCD        : it's database of k8's all clusters info store here 
+
+3 . SCHEDULER   : schedules  pods on worker nodes , based on hardware resources 
+
+4 .  controller : used to control the k8's objects .
+
+
+Worker node : 
+===========
+
+KUBELET : IT'S and agent used to communicate with master 
+KUBEPROXY : IT'S Deal with network OF cluster 
+POD : it's a group of containers 
+
+
+
+
+MiniKube  : is used to test local cluster  setup in minikube master and worker nodes components are on the same server 
+
+           master and worker processes run on same machine 
+
+
+          it is used for testing purpose not for production purpose :( docker pre installed on this node ) 
+
+
+Kubectl ?  
+
+
+
+Installation and creation of Minicube :
+************************************
+
+installation URL :
+----------------
+
+https://minikube.sigs.k8s.io/docs/start/?arch=%2Fwindows%2Fx86-64%2Fstable%2F.exe+download
+
+
+
+
+OPEN powershell 
+-------------
+
+1 ) 
+
+New-Item -Path 'c:\' -Name 'minikube' -ItemType Directory -Force
+$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -OutFile 'c:\minikube\minikube.exe' -Uri 'https://github.com/kubernetes/minikube/releases/latest/download/minikube-windows-amd64.exe' -UseBasicParsing
+
+
+
+Add the minikube.exe binary to your PATH.
+Make sure to run PowerShell as Administrator.
+
+
+2 ) 
+
+$oldPath = [Environment]::GetEnvironmentVariable('Path', [EnvironmentVariableTarget]::Machine)
+if ($oldPath.Split(';') -inotcontains 'C:\minikube'){
+  [Environment]::SetEnvironmentVariable('Path', $('{0};C:\minikube' -f $oldPath), [EnvironmentVariableTarget]::Machine)
+}
+
+
+
+If you used a terminal (like powershell) for the installation, please close the terminal and reopen it before running minikube.
+
+
+
+
+2 . Start your cluster
+ 
+open cmd:
+----------
+
+>  minikube start                  -------- this command will download an image and run container 
+
+
+
+download cubectl :   curl.exe -LO "https://dl.k8s.io/release/v1.33.0/bin/windows/amd64/kubectl.exe"
+--------------
+
+3 . Interact with your cluster :
+
+-
+
+Commands :
+======
+
+>  kubectl get po -A                            -----to get all details 
+
+
+> kubectl get nodes                            ------ to get status of nodes 
+
+> minikube status                             ------- to get info of minikube 
+
+
+
+Main Kubectl commands :
+=====================
+
+
+> kubectl get nodes
+> kubectl get pods
+> kubectl get services
+> kubectl create deployment ngnix-depl --image=ngnix
+> kubectl get deployment
+> kubectl get pod
+> kubectl edit deployment ngnix-depl
+> kubectl get replicaset
+
+
+Debugging commands :
+==================
+
+
+> kubectl create deployment mongo-depl --image=mongo
+> kubectl get pods
+> kubectl logs mongo-depl-85ffbc9879-xdg8l
+> kubectl describe pod mongo-depl-85ffbc9879-xdg8l
+> kubectl exec -it mongo-depl-85ffbc9879-xdg8l -- bin/bash                ------to enter into to POD 
+
+
+Delete deployment  and configuration file 
+**************************************** : 
+
+
+
+> kubectl delete  deployment mongo-depl
+
+
+create a new configuration file name
+----------------------------------
+in powershell :
+===========
+  New-Item "nginx-config.yaml" -ItemType File
+
+
+
+
+cat nginx-config.yaml 
+
+----------------------------------------------
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 2   # 2 pods for high availability
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.16   # you can use nginx:latest too
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  selector:
+    app: nginx
+  ports:
+  - protocol: TCP
+    port: 80         # Service port
+    targetPort: 80   # Container port
+    nodePort: 30080  # NodePort (fixed for easy access)
+  type: NodePort
+
+
+
+-----------------------------------------------------------------
+
+> kubectl apply -f nginx-config.yaml
+
+
+
+> kubectl get pods -o wide
+> kubectl delete -f nginx-config.yaml
+
+
+
+
+************************************************ Demo Project complete application setup with Kubernetes components *******************************************************
+
+
+we are gonna deploy two application   1) mongodb  2) mongo-express 
+
+
+
+Overview of k8's components 
+
+2 deployment /pod 
+2 service
+1 configmap
+1 secret 
+
+
+
+
+1st step : create a mongo.yaml file for creating mongo db 
+
+cat mongo.yaml 
+
+------------------------------------------------
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb-deployment
+  labels:
+    app: mongodb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo
+          ports:
+            - containerPort: 27017
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-secret
+                  key: mongo-root-username
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-secret
+                  key: mongo-root-password
+
+
+--------------------------------------------------
+
+2nd step : create a secret file to store username and password : 
+
+--------------
+
+cat mongo-secret.yaml 
+
+apiVersion: v1
+kind: Secret
+ metadata:
+     name: mongodb-secret 
+
+type: Opaque 
+data: 
+      mongo-root-username: cm9vdA==
+      mongo-root-password: cm9vdA==
+
+
+
+
+Note : we have to deploy secret file first before of deployment 
+------------------------------------------------------------
+
+C:\Users\sajjad.iqbal\k8's configurations files
+
+> kubectl apply -f mongo-secret.yaml
+
+C:\Users\sajjad.iqbal\k8's configurations files>kubectl get secret
+
+NAME           TYPE     DATA   AGE
+mongo-secret   Opaque   2      82s
+
+
+> kubectl apply -f mongo.yaml
+
+deployment.apps/mongodb-deployment created
+
+
+
+
+C:\Users\sajjad.iqbal\k8's configurations files  > kubectl get all
+NAME                                      READY   STATUS    RESTARTS   AGE
+pod/mongodb-deployment-7c8d894848-bpbs8   1/1     Running   0          85s
+
+NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   3d16h
+
+NAME                                 READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/mongodb-deployment   1/1     1            1           86s
+
+NAME                                            DESIRED   CURRENT   READY   AGE
+replicaset.apps/mongodb-deployment-7c8d894848   1         1         1       86s
+
+
+
+ 
+
+
+----------------------
+
+So DB is created 2nd step is to create an internal service mongodb internal service so that mongo express web can talk to mongo-db 
+
+
+
+edit the mongo.ymal file and add following for service 
+
+
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-service
+spec:
+  selector:
+    app: mongodb
+  ports:
+    - protocol: TCP
+      port: 27017
+      targetPort: 27017
+
+
+
+
+
+***************************************
+
+>kubectl apply -f mongo.yaml
+
+
+C:\Users\sajjad.iqbal\k8's configurations files>kubectl get service
+NAME              TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)     AGE
+kubernetes        ClusterIP   10.96.0.1        <none>        443/TCP     3d16h
+mongodb-service   ClusterIP   10.106.124.222   <none>        27017/TCP   30s
+
+
+
+
+*********************  next step is to create mongo-express   *******************
+
+cat mongo-express.yaml
+
+--------------------------
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-express
+  labels:
+    app: mongo-express
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongo-express
+  template:
+    metadata:
+      labels:
+        app: mongo-express
+    spec:
+      containers:
+        - name: mongo-express
+          image: mongo-express
+          ports:
+            - containerPort: 8081
+          env:
+            - name: ME_CONFIG_MONGODB_ADMINUSERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-secret
+                  key: mongo-root-username
+            - name: ME_CONFIG_MONGODB_ADMINPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-secret
+                  key: mongo-root-password
+            - name: ME_CONFIG_MONGODB_SERVER
+              valueFrom:
+                configMapKeyRef:
+                  name: mongodb-configmap
+                  key: database_url
+
+
+
+
+
+----------------------------------------------
+
+
+>kubectl apply -f mongo-configmap.yaml
+>kubectl apply -f mongo-express.yaml
+
+
+
+
+******************************************************** namespaces ****************************************************
+
+namespaces is like virtual cluster within cluster node 
+different resources are arranges in namespaces 
+
+
+
+> kubectl create namespace my-namespace                 -------- to create a namespace 
+
+> kubectl get namespaces
+
+PS C:\Users\sajjad.iqbal\k8's configurations files> kubectl get namespaces
+NAME              STATUS   AGE
+default           Active   6d13h
+kube-node-lease   Active   6d13h
+kube-public       Active   6d13h
+kube-system       Active   6d13h
+my-namespace      Active   2m29s
+
+
+Check what is running inside a namespace
+
+# List pods in a namespace
+kubectl get pods -n <namespace-name>
+
+# List all resources (pods, services, deployments, etc.)
+kubectl get all -n <namespace-name>
+
+# If you want to check CRDs (custom resources) as well
+kubectl api-resources --verbs=list --namespaced -o name | \
+xargs -n 1 kubectl get -n <namespace-name>
+
+
+# Delete a namespace
+
+kubectl delete namespace <namespace-name>
+
+
+
+# change namespaces
+
+kubectl config set-context --current --namespace=default
+
+kubectl config set-context --current --namespace=my-namespace
+
+
+
+
+
+
+
+************************************************* Ingress  ************************************************************
+
+
+* ingress is a domain it's provide a name like https://my.app.com   instead of IP 
+
+> minikube addons enable ingress
+
+> PS C:\Users\sajjad.iqbal> kubectl get ns
+NAME                   STATUS   AGE
+default                Active   7d4h
+ingress-nginx          Active   4h24m
+kube-node-lease        Active   7d4h
+kube-public            Active   7d4h
+kube-system            Active   7d4h
+kubernetes-dashboard   Active   7s
+my-namespace           Active   15h
+
+
+
+> kubectl get all -n ingress-nginx
+
+NAME                                           READY   STATUS      RESTARTS   AGE
+pod/ingress-nginx-admission-create-clsxt       0/1     Completed   0          4h25m
+pod/ingress-nginx-admission-patch-flz97        0/1     Completed   1          4h25m
+pod/ingress-nginx-controller-67c5cb88f-dc8xv   1/1     Running     0          4h25m
+
+NAME                                         TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)                      AGE
+service/ingress-nginx-controller             NodePort    10.106.130.233   <none>        80:30252/TCP,443:32251/TCP   4h25m
+service/ingress-nginx-controller-admission   ClusterIP   10.103.81.9      <none>        443/TCP                      4h25m
+
+NAME                                       READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/ingress-nginx-controller   1/1     1            1           4h25m
+
+NAME                                                 DESIRED   CURRENT   READY   AGE
+replicaset.apps/ingress-nginx-controller-67c5cb88f   1         1         1       4h25m
+
+NAME                                       STATUS     COMPLETIONS   DURATION   AGE
+job.batch/ingress-nginx-admission-create   Complete   1/1           18s        4h25m
+job.batch/ingress-nginx-admission-patch    Complete   1/1           17s        4h25m
+
+
+
+
+
+**************************************************************** 
+
+
+C:\Users\sajjad.iqbal>kubectl get all -n kubernetes-dashboard
+
+NAME                                             READY   STATUS    RESTARTS        AGE
+pod/dashboard-metrics-scraper-5d59dccf9b-hztt7   1/1     Running   1 (5m15s ago)   12d
+pod/kubernetes-dashboard-7779f9b69b-rf7jn        1/1     Running   2 (4m13s ago)   12d
+
+NAME                                TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
+service/dashboard-metrics-scraper   ClusterIP   10.111.30.174   <none>        8000/TCP   12d
+service/kubernetes-dashboard        ClusterIP   10.106.224.99   <none>        80/TCP     12d
+
+NAME                                        READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/dashboard-metrics-scraper   1/1     1            1           12d
+deployment.apps/kubernetes-dashboard        1/1     1            1           12d
+
+NAME                                                   DESIRED   CURRENT   READY   AGE
+replicaset.apps/dashboard-metrics-scraper-5d59dccf9b   1         1         1       12d
+replicaset.apps/kubernetes-dashboard-7779f9b69b        1         1         1       12d
+
+
+
+********************************************************************************************   HELM   **********************************************************************************
+
+
+
+* Helm is package manager for Kubernetes 
+*HELM chart 
+
+bundle of YAML files 
+create your own helm charts with helm 
+
+
+
+192.168.49.2 sajjadingressdashboard.com
